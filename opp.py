@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 1. 웹 화면 기본 설정 및 여백 압축
-st.set_page_config(layout="wide", page_title="동연 지표 대시보드")
+st.set_page_config(layout="wide", page_title="일일 지표 대시보드")
 st.markdown("""
 <style>
     .block-container { padding-top: 2rem; padding-bottom: 1rem; }
@@ -20,7 +20,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 동연이의 금융 지표 대시보드")
+st.title("📊 나의 실시간 금융 지표 대시보드")
 
 # --- 데이터 수집 함수 모음 ---
 
@@ -47,25 +47,20 @@ def get_fred_data(ticker):
     except:
         return 0, 0
 
-# (수정됨) 네이버 금융 국내 금 시세 우회 크롤링
 def get_krx_gold():
     try:
         url = "https://finance.naver.com/marketindex/"
-        # 사람(웹 브라우저)이 접속하는 것처럼 헤더 추가
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
         res = requests.get(url, headers=headers)
         soup = BeautifulSoup(res.text, 'html.parser')
-        # 네이버 금융 메인 화면의 '국내 금' 클래스 좌표로 직접 탐색
         price = soup.select_one('.gold_domestic .value').text
         return price
     except:
         return "조회불가"
 
-# (수정됨) CNN Fear & Greed API 우회
 def get_fear_and_greed():
     try:
         url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
-        # CNN 서버가 봇을 차단하지 못하도록 Referer(이전 접속 주소) 위장 추가
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
             'Referer': 'https://edition.cnn.com/'
@@ -127,3 +122,14 @@ st.subheader("😨 시장 투자 심리")
 fg_score, fg_rating = get_fear_and_greed()
 st.metric("Fear & Greed Index", f"{fg_score} 점", fg_rating)
 
+st.write("---")
+
+# --- 5. 국제 유가 (새로 추가됨) ---
+st.subheader("🛢️ 국제 유가")
+o1, o2 = st.columns(2)
+with o1:
+    wti_curr, wti_change = get_yf_data("CL=F")
+    st.metric("WTI (서부텍사스산 원유)", f"$ {wti_curr:,.2f}" if wti_curr else "-", f"$ {wti_change:,.2f}" if wti_change else "-")
+with o2:
+    brent_curr, brent_change = get_yf_data("BZ=F")
+    st.metric("브렌트유", f"$ {brent_curr:,.2f}" if brent_curr else "-", f"$ {brent_change:,.2f}" if brent_change else "-")
