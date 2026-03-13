@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 1. 웹 화면 기본 설정 및 여백 압축
-st.set_page_config(layout="wide", page_title="일일 지표 대시보드")
+st.set_page_config(layout="wide", page_title="완동키 지표 대시보드")
 st.markdown("""
 <style>
     .block-container { padding-top: 2rem; padding-bottom: 1rem; }
@@ -20,7 +20,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 나의 실시간 금융 지표 대시보드")
+st.title("📊 완동키 실시간 금융 지표 대시보드")
 
 # --- 데이터 수집 함수 모음 ---
 
@@ -150,3 +150,4 @@ with o1:
 with o2:
     brent_curr, brent_change = get_yf_data("BZ=F")
     st.metric("브렌트유", f"$ {brent_curr:,.2f}" if brent_curr else "-", f"$ {brent_change:,.2f}" if brent_change else "-")
+
