@@ -105,15 +105,32 @@ with c5:
 
 st.write("---")
 
-# --- 3. 금 시세 ---
+# --- 3. 금 시세 및 김치프리미엄 ---
 st.subheader("🥇 금 시세")
-g1, g2 = st.columns(2)
+g1, g2, g3 = st.columns(3)
+
 with g1:
     gold_curr, gold_change = get_yf_data("GC=F")
     st.metric("국제 금 (온스당)", f"$ {gold_curr:,.2f}", f"$ {gold_change:,.2f}")
+
 with g2:
     krx_price = get_krx_gold()
     st.metric("국내 금 (1g/신한은행 고시)", f"{krx_price} 원" if krx_price != "조회불가" else "조회불가", "-")
+
+with g3:
+    try:
+        if gold_curr and krw_curr and krx_price != "조회불가":
+            # 1 트로이온스 = 31.1034768g
+            intl_gold_krw_per_g = (gold_curr * krw_curr) / 31.1034768
+            krx_gold_float = float(krx_price.replace(',', ''))
+            
+            # 김치프리미엄 산출: (국내 가격 / 국제 가격 환산분 - 1) * 100
+            kimchi_premium = ((krx_gold_float / intl_gold_krw_per_g) - 1) * 100
+            st.metric("김치 프리미엄", f"{kimchi_premium:.2f} %", "-")
+        else:
+            st.metric("김치 프리미엄", "계산 불가", "-")
+    except:
+        st.metric("김치 프리미엄", "계산 불가", "-")
 
 st.write("---")
 
@@ -124,7 +141,7 @@ st.metric("Fear & Greed Index", f"{fg_score} 점", fg_rating)
 
 st.write("---")
 
-# --- 5. 국제 유가 (새로 추가됨) ---
+# --- 5. 국제 유가 ---
 st.subheader("🛢️ 국제 유가")
 o1, o2 = st.columns(2)
 with o1:
