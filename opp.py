@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import os
 from datetime import datetime, timedelta
 
-# 파일 경로 자동 인식
+# 파일 경로 자동 인식 (향후 로컬 엑셀 연동 대비)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 1. 웹 화면 기본 설정 및 여백 압축
@@ -47,16 +47,29 @@ def get_fred_data(ticker):
     except:
         return 0, 0
 
+# (수정됨) 국내 금 시세 현재가 및 변동액 함께 크롤링
 def get_krx_gold():
     try:
         url = "https://finance.naver.com/marketindex/"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         res = requests.get(url, headers=headers)
         soup = BeautifulSoup(res.text, 'html.parser')
-        price = soup.select_one('.gold_domestic .value').text
-        return price
+        
+        target = soup.select_one('.gold_domestic')
+        # 현재가
+        price_str = target.select_one('.value').text
+        price = float(price_str.replace(',', ''))
+        # 전일대비 변동액
+        change_str = target.select_one('.change').text
+        change = float(change_str.replace(',', ''))
+        # 상승/하락 여부 판별
+        blind_str = target.select_one('.blind').text
+        if "하락" in blind_str:
+            change = -change
+            
+        return price, change
     except:
-        return "조회불가"
+        return 0, 0
 
 def get_fear_and_greed():
     try:
@@ -109,27 +122,22 @@ st.write("---")
 st.subheader("🥇 금 시세")
 g1, g2, g3 = st.columns(3)
 
+# (수정됨) 해외 지표들은 화살표 오류 방지를 위해 기호를 숫자 뒤로 배치 ($)
 with g1:
     gold_curr, gold_change = get_yf_data("GC=F")
-    st.metric("국제 금 (온스당)", f"$ {gold_curr:,.2f}", f"$ {gold_change:,.2f}")
+    st.metric("국제 금 (온스당)", f"$ {gold_curr:,.2f}" if gold_curr else "-", f"{gold_change:,.2f} $" if gold_change else "-")
 
 with g2:
-    krx_price = get_krx_gold()
-    st.metric("국내 금 (1g/신한은행 고시)", f"{krx_price} 원" if krx_price != "조회불가" else "조회불가", "-")
+    krx_curr, krx_change = get_krx_gold()
+    st.metric("국내 금 (1g/신한은행 고시)", f"{krx_curr:,.2f} 원" if krx_curr else "조회불가", f"{krx_change:,.2f} 원" if krx_curr else "-")
 
 with g3:
-    try:
-        if gold_curr and krw_curr and krx_price != "조회불가":
-            # 1 트로이온스 = 31.1034768g
-            intl_gold_krw_per_g = (gold_curr * krw_curr) / 31.1034768
-            krx_gold_float = float(krx_price.replace(',', ''))
-            
-            # 김치프리미엄 산출: (국내 가격 / 국제 가격 환산분 - 1) * 100
-            kimchi_premium = ((krx_gold_float / intl_gold_krw_per_g) - 1) * 100
-            st.metric("김치 프리미엄", f"{kimchi_premium:.2f} %", "-")
-        else:
-            st.metric("김치 프리미엄", "계산 불가", "-")
-    except:
+    if gold_curr and krw_curr and krx_curr:
+        # 1 트로이온스 = 31.1034768g
+        intl_gold_krw_per_g = (gold_curr * krw_curr) / 31.1034768
+        kimchi_premium = ((krx_curr / intl_gold_krw_per_g) - 1) * 100
+        st.metric("김치 프리미엄", f"{kimchi_premium:.2f} %", "-")
+    else:
         st.metric("김치 프리미엄", "계산 불가", "-")
 
 st.write("---")
@@ -146,8 +154,7 @@ st.subheader("🛢️ 국제 유가")
 o1, o2 = st.columns(2)
 with o1:
     wti_curr, wti_change = get_yf_data("CL=F")
-    st.metric("WTI (서부텍사스산 원유)", f"$ {wti_curr:,.2f}" if wti_curr else "-", f"$ {wti_change:,.2f}" if wti_change else "-")
+    st.metric("WTI (서부텍사스산 원유)", f"$ {wti_curr:,.2f}" if wti_curr else "-", f"{wti_change:,.2f} $" if wti_change else "-")
 with o2:
     brent_curr, brent_change = get_yf_data("BZ=F")
-    st.metric("브렌트유", f"$ {brent_curr:,.2f}" if brent_curr else "-", f"$ {brent_change:,.2f}" if brent_change else "-")
-
+    st.metric("브렌트유", f"$ {brent_curr:,.2f}" if brent_curr else "-", f"{brent_change:,.2f} $" if brent_change else "-")
