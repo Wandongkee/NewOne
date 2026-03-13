@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 1. 웹 화면 기본 설정 및 여백 압축
-st.set_page_config(layout="wide", page_title="완동키 지표 대시보드")
+st.set_page_config(layout="wide", page_title="일일 지표 대시보드")
 st.markdown("""
 <style>
     .block-container { padding-top: 2rem; padding-bottom: 1rem; }
@@ -20,7 +20,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 완동키 실시간 금융 지표 대시보드")
+st.title("📊 나의 실시간 금융 지표 대시보드")
 
 # --- 데이터 수집 함수 모음 ---
 
@@ -47,7 +47,6 @@ def get_fred_data(ticker):
     except:
         return 0, 0
 
-# (수정됨) 국내 금 시세 현재가 및 변동액 함께 크롤링
 def get_krx_gold():
     try:
         url = "https://finance.naver.com/marketindex/"
@@ -56,13 +55,12 @@ def get_krx_gold():
         soup = BeautifulSoup(res.text, 'html.parser')
         
         target = soup.select_one('.gold_domestic')
-        # 현재가
         price_str = target.select_one('.value').text
         price = float(price_str.replace(',', ''))
-        # 전일대비 변동액
+        
         change_str = target.select_one('.change').text
         change = float(change_str.replace(',', ''))
-        # 상승/하락 여부 판별
+        
         blind_str = target.select_one('.blind').text
         if "하락" in blind_str:
             change = -change
@@ -83,78 +81,3 @@ def get_fear_and_greed():
         score = int(data['fear_and_greed']['score'])
         rating = data['fear_and_greed']['rating']
         return score, rating
-    except:
-        return 0, "조회불가"
-
-
-st.write("---")
-
-# --- 1. 원/달러 환율 ---
-st.subheader("💵 원/달러 환율")
-krw_curr, krw_change = get_yf_data("KRW=X")
-st.metric("환율", f"{krw_curr:,.2f} 원" if krw_curr else "-", f"{krw_change:,.2f} 원" if krw_change else "-")
-
-st.write("---")
-
-# --- 2. 미 국채 금리 ---
-st.subheader("🇺🇸 미 국채 금리")
-c1, c2, c3, c4, c5 = st.columns(5)
-
-with c1:
-    irx_curr, irx_change = get_yf_data("^IRX")
-    st.metric("3개월물", f"{irx_curr:.3f} %", f"{irx_change:.3f} %")
-with c2:
-    dgs1_curr, dgs1_change = get_fred_data("DGS1")
-    st.metric("1년물", f"{dgs1_curr:.3f} %" if dgs1_curr else "-", f"{dgs1_change:.3f} %" if dgs1_curr else "-")
-with c3:
-    tnx_curr, tnx_change = get_yf_data("^TNX")
-    st.metric("10년물", f"{tnx_curr:.3f} %", f"{tnx_change:.3f} %")
-with c4:
-    dgs20_curr, dgs20_change = get_fred_data("DGS20")
-    st.metric("20년물", f"{dgs20_curr:.3f} %" if dgs20_curr else "-", f"{dgs20_change:.3f} %" if dgs20_curr else "-")
-with c5:
-    tyx_curr, tyx_change = get_yf_data("^TYX")
-    st.metric("30년물", f"{tyx_curr:.3f} %", f"{tyx_change:.3f} %")
-
-st.write("---")
-
-# --- 3. 금 시세 및 김치프리미엄 ---
-st.subheader("🥇 금 시세")
-g1, g2, g3 = st.columns(3)
-
-# (수정됨) 해외 지표들은 화살표 오류 방지를 위해 기호를 숫자 뒤로 배치 ($)
-with g1:
-    gold_curr, gold_change = get_yf_data("GC=F")
-    st.metric("국제 금 (온스당)", f"$ {gold_curr:,.2f}" if gold_curr else "-", f"{gold_change:,.2f} $" if gold_change else "-")
-
-with g2:
-    krx_curr, krx_change = get_krx_gold()
-    st.metric("국내 금 (1g/신한은행 고시)", f"{krx_curr:,.2f} 원" if krx_curr else "조회불가", f"{krx_change:,.2f} 원" if krx_curr else "-")
-
-with g3:
-    if gold_curr and krw_curr and krx_curr:
-        # 1 트로이온스 = 31.1034768g
-        intl_gold_krw_per_g = (gold_curr * krw_curr) / 31.1034768
-        kimchi_premium = ((krx_curr / intl_gold_krw_per_g) - 1) * 100
-        st.metric("김치 프리미엄", f"{kimchi_premium:.2f} %", "-")
-    else:
-        st.metric("김치 프리미엄", "계산 불가", "-")
-
-st.write("---")
-
-# --- 4. 시장 투자 심리 ---
-st.subheader("😨 시장 투자 심리")
-fg_score, fg_rating = get_fear_and_greed()
-st.metric("Fear & Greed Index", f"{fg_score} 점", fg_rating)
-
-st.write("---")
-
-# --- 5. 국제 유가 ---
-st.subheader("🛢️ 국제 유가")
-o1, o2 = st.columns(2)
-with o1:
-    wti_curr, wti_change = get_yf_data("CL=F")
-    st.metric("WTI (서부텍사스산 원유)", f"$ {wti_curr:,.2f}" if wti_curr else "-", f"{wti_change:,.2f} $" if wti_change else "-")
-with o2:
-    brent_curr, brent_change = get_yf_data("BZ=F")
-    st.metric("브렌트유", f"$ {brent_curr:,.2f}" if brent_curr else "-", f"{brent_change:,.2f} $" if brent_change else "-")
